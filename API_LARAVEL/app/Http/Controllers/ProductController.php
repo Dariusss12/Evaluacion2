@@ -1,52 +1,80 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\Product;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
     public function index()
     {
         $products = Product::all();
-
-        return response()->json($products);
+        return response()->json($products,200);
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required',
-            'price' => 'required|numeric',
-            'description' => 'nullable',
-            'image' => 'required',
-        ]);
+        try{
+            DB::beginTransaction();
+            $fields=$request->validate([
+                'name'=>'required',
+                'price'=>'required|integer',
+                'description'=>'required',
+                'image'=>'required'
+            ]);
 
-        $product = Product::create($request->all());
-
-        return response()->json($product, 201);
+            $product=Product::create([
+                'name'=>$fields['name'],
+                'price'=>$fields['price'],
+                'description'=>$fields['description'],
+                'image'=>$fields['image']
+            ]);
+            DB::commit();
+            return response()->json($product,200);
+        }catch (\Exception $e){
+            DB::rollBack();
+            return response()->json($e->errors(),500);
+        }
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, Product $product)
     {
-        $request->validate([
-            'name' => 'required',
-            'price' => 'required|numeric',
-            'description' => 'nullable',
-            'image' => 'required',
-        ]);
+        try{
+            DB::beginTransaction();
+            $fields=$request->validate([
+                'name' => 'required',
+                'price' => 'required|numeric',
+                'description' => 'nullable',
+                'image' => 'required',
+            ]);
 
-        $product = Product::findOrFail($id);
-        $product->update($request->all());
-
-        return response()->json($product, 200);
+            $product->update([
+                'name'=>$fields['name'],
+                'price'=>$fields['price'],
+                'description'=>$fields['description']??$product->description,
+                'image'=>$fields['image']
+            ]);
+            DB::commit();
+            return response()->json($product,200);
+        }catch (\Exception $e){
+            DB::rollBack();
+            return response()->json($e->errors(),500);
+        }
     }
 
-    public function destroy($id)
+    public function destroy(Product $product)
     {
-        $product = Product::findOrFail($id);
-        $product->delete();
-
-        return response()->json(null, 204);
+        try{
+            DB::beginTransaction();
+            $product->delete();
+            DB::commit();
+            return response()->json('Deleted success',200);
+        }catch (\Exception $exception){
+            DB::rollBack();
+            return response()->json($e->errors(),500);
+        }
     }
 }
